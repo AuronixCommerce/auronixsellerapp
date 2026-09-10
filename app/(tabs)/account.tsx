@@ -25,6 +25,7 @@ export default function Account() {
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState('');
+  const [loadError, setLoadError] = useState('');
 
   const load = useCallback(async () => {
     try {
@@ -36,6 +37,9 @@ export default function Account() {
         phone: p.phone || '',
         website: p.website || '',
       });
+      setLoadError('');
+    } catch (e) {
+      setLoadError(e instanceof Error ? e.message : 'Unable to load your seller profile.');
     } finally {
       setLoading(false);
     }
@@ -69,6 +73,8 @@ export default function Account() {
         <View style={styles.loader}><IOSSpinner /></View>
       ) : (
         <ScrollView contentContainerStyle={ui.content} keyboardShouldPersistTaps="handled">
+          {loadError ? <GlassCard style={styles.errorCard}><Text style={styles.errorText}>{loadError}</Text><PrimaryButton tone="quiet" onPress={() => void load()}>Retry</PrimaryButton></GlassCard> : null}
+
           <GlassCard style={styles.identity}>
             <View style={styles.avatar}><Text style={styles.avatarText}>{(profile?.displayName || profile?.name || user?.email || 'A').slice(0, 1).toUpperCase()}</Text></View>
             <View style={{ flex: 1 }}>
@@ -78,59 +84,32 @@ export default function Account() {
             <StatusPill value={profile?.status || 'Active'} />
           </GlassCard>
 
-          <View>
-            <Text style={[ui.sectionTitle, styles.sectionTitle]}>Appearance</Text>
-            <Text style={styles.sectionBody}>Choose how Auronix Seller looks on this device.</Text>
-          </View>
+          <View><Text style={[ui.sectionTitle, styles.sectionTitle]}>Appearance</Text><Text style={styles.sectionBody}>Choose how Auronix Seller looks on this device.</Text></View>
           <GlassCard style={styles.themeCard}>
             {themeOptions.map((option, index) => {
               const active = mode === option.value;
               return (
-                <Pressable
-                  key={option.value}
-                  accessibilityRole="radio"
-                  accessibilityState={{ checked: active }}
-                  onPress={() => void setMode(option.value)}
-                  style={({ pressed }) => [styles.themeRow, index > 0 && styles.themeBorder, pressed && { opacity: 0.68 }]}
-                >
-                  <View style={[styles.themeIcon, active && styles.themeIconActive]}>
-                    <Ionicons name={option.icon} size={19} color={active ? colors.accent : colors.muted} />
-                  </View>
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.themeTitle}>{option.label}</Text>
-                    <Text style={styles.themeMeta}>{option.value === 'system' ? 'Follow your phone automatically' : `Always use ${option.value} appearance`}</Text>
-                  </View>
+                <Pressable key={option.value} accessibilityRole="radio" accessibilityState={{ checked: active }} onPress={() => void setMode(option.value)} style={({ pressed }) => [styles.themeRow, index > 0 && styles.themeBorder, pressed && { opacity: 0.68 }]}>
+                  <View style={[styles.themeIcon, active && styles.themeIconActive]}><Ionicons name={option.icon} size={19} color={active ? colors.accent : colors.muted} /></View>
+                  <View style={{ flex: 1 }}><Text style={styles.themeTitle}>{option.label}</Text><Text style={styles.themeMeta}>{option.value === 'system' ? 'Follow your phone automatically' : `Always use ${option.value} appearance`}</Text></View>
                   <ThemeDot active={active} />
                 </Pressable>
               );
             })}
           </GlassCard>
 
-          <View>
-            <Text style={[ui.sectionTitle, styles.sectionTitle]}>Seller profile</Text>
-            <Text style={styles.sectionBody}>Keep the information shown to Auronix support and seller operations current.</Text>
-          </View>
+          <View><Text style={[ui.sectionTitle, styles.sectionTitle]}>Seller profile</Text><Text style={styles.sectionBody}>Keep the information shown to Auronix support and seller operations current.</Text></View>
           <GlassCard style={styles.form}>
-            <Text style={ui.label}>Display name</Text>
-            <TextInput style={ui.input} value={form.displayName} onChangeText={(displayName) => setForm({ ...form, displayName })} placeholderTextColor={colors.muted} />
-            <Text style={ui.label}>Business name</Text>
-            <TextInput style={ui.input} value={form.businessName} onChangeText={(businessName) => setForm({ ...form, businessName })} placeholderTextColor={colors.muted} />
-            <Text style={ui.label}>Phone</Text>
-            <TextInput keyboardType="phone-pad" style={ui.input} value={form.phone} onChangeText={(phone) => setForm({ ...form, phone })} placeholderTextColor={colors.muted} />
-            <Text style={ui.label}>Website</Text>
-            <TextInput autoCapitalize="none" keyboardType="url" style={ui.input} value={form.website} onChangeText={(website) => setForm({ ...form, website })} placeholder="https://" placeholderTextColor={colors.muted} />
+            <Text style={ui.label}>Display name</Text><TextInput style={ui.input} value={form.displayName} onChangeText={(displayName) => setForm({ ...form, displayName })} placeholderTextColor={colors.muted} />
+            <Text style={ui.label}>Business name</Text><TextInput style={ui.input} value={form.businessName} onChangeText={(businessName) => setForm({ ...form, businessName })} placeholderTextColor={colors.muted} />
+            <Text style={ui.label}>Phone</Text><TextInput keyboardType="phone-pad" style={ui.input} value={form.phone} onChangeText={(phone) => setForm({ ...form, phone })} placeholderTextColor={colors.muted} />
+            <Text style={ui.label}>Website</Text><TextInput autoCapitalize="none" keyboardType="url" style={ui.input} value={form.website} onChangeText={(website) => setForm({ ...form, website })} placeholder="https://" placeholderTextColor={colors.muted} />
             {message ? <Text style={[styles.message, message === 'Profile updated.' && { color: colors.success }]}>{message}</Text> : null}
             <PrimaryButton loading={busy} onPress={save}>Save profile</PrimaryButton>
           </GlassCard>
 
-          <GlassCard style={styles.security}>
-            <View style={styles.securityIcon}><Ionicons name="shield-checkmark-outline" size={21} color={colors.success} /></View>
-            <View style={{ flex: 1 }}><Text style={styles.securityTitle}>Secure seller session</Text><Text style={styles.securityBody}>Authentication is handled through your approved seller account.</Text></View>
-          </GlassCard>
-
-          <PrimaryButton tone="danger" onPress={exit}>
-            <View style={ui.row}><Ionicons name="log-out-outline" color={colors.danger} size={19} /><Text style={styles.logout}>Sign out</Text></View>
-          </PrimaryButton>
+          <GlassCard style={styles.security}><View style={styles.securityIcon}><Ionicons name="shield-checkmark-outline" size={21} color={colors.success} /></View><View style={{ flex: 1 }}><Text style={styles.securityTitle}>Secure seller session</Text><Text style={styles.securityBody}>Authentication is handled through your approved seller account.</Text></View></GlassCard>
+          <PrimaryButton tone="danger" onPress={exit}><View style={ui.row}><Ionicons name="log-out-outline" color={colors.danger} size={19} /><Text style={styles.logout}>Sign out</Text></View></PrimaryButton>
         </ScrollView>
       )}
     </Screen>
@@ -140,6 +119,8 @@ export default function Account() {
 function createStyles(colors: AppColors) {
   return StyleSheet.create({
     loader: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+    errorCard: { padding: 15, gap: 12 },
+    errorText: { color: colors.danger, fontSize: 12, lineHeight: 18 },
     identity: { padding: 16, flexDirection: 'row', alignItems: 'center', gap: 13 },
     avatar: { width: 50, height: 50, borderRadius: 18, backgroundColor: colors.accentStrong, justifyContent: 'center', alignItems: 'center' },
     avatarText: { color: colors.inverse, fontWeight: '900', fontSize: 20 },
