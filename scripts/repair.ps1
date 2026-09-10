@@ -18,7 +18,6 @@ $minimumNode = [version]'22.13.0'
 if ($nodeVersion -lt $minimumNode) {
   Write-Host "ERROR: Expo SDK 57 requires Node.js 22.13.0 or newer." -ForegroundColor Red
   Write-Host "Installed Node.js: v$nodeRaw" -ForegroundColor Yellow
-  Write-Host "Update Node.js, reopen PowerShell, then run npm run repair again." -ForegroundColor Yellow
   exit 1
 }
 Write-Host "Node.js v$nodeRaw: OK" -ForegroundColor Green
@@ -26,6 +25,56 @@ Write-Host "Node.js v$nodeRaw: OK" -ForegroundColor Green
 if (-not (Test-Path ".env")) {
   Write-Host "ERROR: .env was not found at $Root\.env" -ForegroundColor Red
   exit 1
+}
+
+function Read-DotEnv {
+  $values = @{}
+  Get-Content ".env" | ForEach-Object {
+    $line = $_.Trim()
+    if ($line -and -not $line.StartsWith('#') -and $line.Contains('=')) {
+      $parts = $line -split '=', 2
+      $name = $parts[0].Trim()
+      $value = $parts[1].Trim().Trim('"').Trim("'")
+      $values[$name] = $value
+    }
+  }
+  return $values
+}
+
+$envValues = Read-DotEnv
+
+# This app was originally sharing a Next.js-style .env. Expo only exposes
+# EXPO_PUBLIC_* variables to the client bundle, so migrate compatible names
+# automatically without printing any secret values.
+$aliases = [ordered]@{
+  'EXPO_PUBLIC_FIREBASE_API_KEY' = @('NEXT_PUBLIC_FIREBASE_API_KEY')
+  'EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN' = @('NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN')
+  'EXPO_PUBLIC_FIREBASE_DATABASE_URL' = @('NEXT_PUBLIC_FIREBASE_DB_URL', 'FIREBASE_DB_URL', 'CLOUD_FIREBASE_DB_URL')
+  'EXPO_PUBLIC_FIREBASE_PROJECT_ID' = @('NEXT_PUBLIC_FIREBASE_PROJECT_ID', 'FIREBASE_PROJECT_ID')
+  'EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET' = @('NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET')
+  'EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID' = @('NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID')
+  'EXPO_PUBLIC_FIREBASE_APP_ID' = @('NEXT_PUBLIC_FIREBASE_APP_ID')
+}
+
+$added = @()
+foreach ($target in $aliases.Keys) {
+  if ($envValues.ContainsKey($target) -and -not [string]::IsNullOrWhiteSpace($envValues[$target])) {
+    continue
+  }
+
+  foreach ($source in $aliases[$target]) {
+    if ($envValues.ContainsKey($source) -and -not [string]::IsNullOrWhiteSpace($envValues[$source])) {
+      Add-Content -Path ".env" -Value "`n$target=$($envValues[$source])"
+      $added += "$target <- $source"
+      break
+    }
+  }
+}
+
+if ($added.Count -gt 0) {
+  Write-Host "Migrated Firebase variable names for Expo:" -ForegroundColor Green
+  $added | ForEach-Object { Write-Host "  $_" -ForegroundColor DarkGreen }
+  $envValues = Read-DotEnv
 }
 
 $requiredEnv = @(
@@ -38,17 +87,6 @@ $requiredEnv = @(
   'EXPO_PUBLIC_FIREBASE_APP_ID'
 )
 
-$envValues = @{}
-Get-Content ".env" | ForEach-Object {
-  $line = $_.Trim()
-  if ($line -and -not $line.StartsWith('#') -and $line.Contains('=')) {
-    $parts = $line -split '=', 2
-    $name = $parts[0].Trim()
-    $value = $parts[1].Trim().Trim('"').Trim("'")
-    $envValues[$name] = $value
-  }
-}
-
 $missing = @()
 foreach ($name in $requiredEnv) {
   if (-not $envValues.ContainsKey($name) -or [string]::IsNullOrWhiteSpace($envValues[$name])) {
@@ -57,15 +95,16 @@ foreach ($name in $requiredEnv) {
 }
 
 if ($missing.Count -gt 0) {
-  Write-Host "ERROR: These Firebase values are missing/blank in .env:" -ForegroundColor Red
+  Write-Host "ERROR: These Firebase values are still missing/blank in .env:" -ForegroundColor Red
   $missing | ForEach-Object { Write-Host "  - $_" -ForegroundColor Red }
+  Write-Host "The repair script could not find matching NEXT_PUBLIC/FIREBASE values to migrate." -ForegroundColor Yellow
   exit 1
 }
 
 $apiKey = $envValues['EXPO_PUBLIC_FIREBASE_API_KEY']
 if ($apiKey -match 'apiKey\s*:' -or $apiKey -match '^YOUR_' -or -not $apiKey.StartsWith('AIza')) {
   Write-Host "ERROR: EXPO_PUBLIC_FIREBASE_API_KEY looks malformed." -ForegroundColor Red
-  Write-Host "Paste ONLY the Firebase Web API key value. It normally starts with AIza." -ForegroundColor Yellow
+  Write-Host "It must be the Firebase Web API key value and normally starts with AIza." -ForegroundColor Yellow
   exit 1
 }
 
