@@ -33,10 +33,14 @@ export const sellerApi = {
   markNotification: (id?: string) => jsonRequest<{ success: true }>('/api/seller/notifications', { method: 'PATCH', body: JSON.stringify(id ? { id } : { all: true }) }, true),
 };
 
-export async function askAuronix(messages: { role: 'user' | 'assistant'; content: string }[]) {
+export async function askAuronix(
+  messages: { role: 'user' | 'assistant'; content: string }[],
+  options?: { signal?: AbortSignal },
+) {
   return jsonRequest<{ success: boolean; response?: string; error?: string }>('/api/chat', {
     method: 'POST',
     body: JSON.stringify({ pathname: '/seller/support', messages }),
+    signal: options?.signal,
   });
 }
 
