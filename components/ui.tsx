@@ -1,7 +1,7 @@
 import { BlurView } from 'expo-blur';
 import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useEffect, useMemo, useRef, type PropsWithChildren, type ReactNode } from 'react';
+import { Children, useEffect, useMemo, useRef, type PropsWithChildren, type ReactNode } from 'react';
 import {
   Animated,
   Pressable,
@@ -15,7 +15,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAppTheme } from '@/src/context/theme';
-import { shadows, type AppColors } from '@/src/theme';
+import { shadows } from '@/src/theme';
 
 export function useUIStyles() {
   const { colors } = useAppTheme();
@@ -129,6 +129,15 @@ export function PrimaryButton({ children, loading, tone = 'accent', ...props }: 
   const { colors } = useAppTheme();
   const backgroundColor = tone === 'accent' ? colors.accentStrong : tone === 'danger' ? colors.dangerSoft : colors.surfaceSoft;
   const textColor = tone === 'accent' ? colors.inverse : tone === 'danger' ? colors.danger : colors.ink;
+  const items = Children.toArray(children);
+  const textOnly = items.length > 0 && items.every((child) => typeof child === 'string' || typeof child === 'number');
+  const content = textOnly
+    ? <Text style={[styles.buttonText, { color: textColor }]}>{items.join('')}</Text>
+    : items.map((child, index) => (
+        typeof child === 'string' || typeof child === 'number'
+          ? <Text key={`text-${index}`} style={[styles.buttonText, { color: textColor }]}>{child}</Text>
+          : child
+      ));
 
   return (
     <Pressable
@@ -144,7 +153,7 @@ export function PrimaryButton({ children, loading, tone = 'accent', ...props }: 
         typeof props.style === 'function' ? props.style(state) : props.style,
       ]}
     >
-      {loading ? <IOSSpinner size={20} color={textColor} /> : typeof children === 'string' ? <Text style={[styles.buttonText, { color: textColor }]}>{children}</Text> : children}
+      {loading ? <IOSSpinner size={20} color={textColor} /> : content}
     </Pressable>
   );
 }
