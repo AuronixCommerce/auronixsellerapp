@@ -4,20 +4,37 @@ import type { SellerNotification, Workspace } from '@/src/types';
 
 export const API_URL = (process.env.EXPO_PUBLIC_API_URL || 'https://www.auronixcommerce.com').replace(/\/$/, '');
 
+type ApiErrorBody = { error?: string; code?: string };
+
 async function jsonRequest<T>(path: string, init?: RequestInit, authenticated = false): Promise<T> {
   const token = authenticated ? await auth.currentUser?.getIdToken() : undefined;
   if (authenticated && !token) throw new Error('Your seller session has expired. Please sign in again.');
-  const response = await fetch(`${API_URL}${path}`, {
-    ...init,
-    headers: {
-      Accept: 'application/json',
-      ...(init?.body ? { 'Content-Type': 'application/json' } : {}),
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      ...(init?.headers || {}),
-    },
-  });
-  const data = await response.json().catch(() => ({}));
-  if (!response.ok) throw new Error(data.error || 'Auronix could not complete this request.');
+
+  let response: Response;
+  try {
+    response = await fetch(`${API_URL}${path}`, {
+      ...init,
+      headers: {
+        Accept: 'application/json',
+        ...(init?.body ? { 'Content-Type': 'application/json' } : {}),
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        ...(init?.headers || {}),
+      },
+    });
+  } catch (error) {
+    if (error instanceof Error && error.name === 'AbortError') throw error;
+    throw new Error('Unable to reach Auronix Commerce. Check your connection and try again.');
+  }
+
+  const data = await response.json().catch(() => ({} as ApiErrorBody)) as ApiErrorBody & T;
+
+  if (!response.ok) {
+    if (response.status === 401 || response.status === 403) {
+      throw new Error(data.error || 'Seller access could not be verified. Make sure this account is an approved Auronix seller.');
+    }
+    throw new Error(data.error || 'Auronix could not complete this request.');
+  }
+
   return data as T;
 }
 
