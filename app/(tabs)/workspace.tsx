@@ -2,24 +2,155 @@ import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from 'expo-router';
 import { useCallback, useMemo, useState } from 'react';
 import { Alert, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
-import { GlassCard, Header, IOSSpinner, PrimaryButton, Screen, StatusPill, ui } from '@/components/ui';
+import { GlassCard, Header, IOSSpinner, PrimaryButton, Screen, StatusPill, useUIStyles } from '@/components/ui';
+import { useAppTheme } from '@/src/context/theme';
 import { sellerApi } from '@/src/lib/api';
-import { colors } from '@/src/theme';
+import type { AppColors } from '@/src/theme';
 import type { Workspace } from '@/src/types';
 
 type Kind = 'product' | 'catalog';
+
 export default function WorkspaceScreen() {
-  const [data, setData] = useState<Workspace | null>(null); const [loading, setLoading] = useState(true); const [kind, setKind] = useState<Kind>('product'); const [showForm, setShowForm] = useState(false); const [busy, setBusy] = useState(false); const [error, setError] = useState('');
+  const { colors } = useAppTheme();
+  const ui = useUIStyles();
+  const styles = useMemo(() => createStyles(colors), [colors]);
+  const [data, setData] = useState<Workspace | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [kind, setKind] = useState<Kind>('product');
+  const [showForm, setShowForm] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
   const [form, setForm] = useState({ name: '', sku: '', category: '', price: '', url: '', description: '' });
-  const load = useCallback(async () => { try { setData(await sellerApi.workspace()); setError(''); } catch (e) { setError(e instanceof Error ? e.message : 'Unable to load workspace.'); } finally { setLoading(false); } }, []);
+
+  const load = useCallback(async () => {
+    try {
+      setData(await sellerApi.workspace());
+      setError('');
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Unable to load workspace.');
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
   useFocusEffect(useCallback(() => { void load(); }, [load]));
   const items = useMemo(() => kind === 'product' ? data?.products || [] : data?.catalogs || [], [data, kind]);
-  async function save() { if (!form.name.trim() || (kind === 'catalog' && !form.url.trim())) return setError('Complete the required fields.'); setBusy(true); try { await sellerApi.create(kind, form); setForm({ name: '', sku: '', category: '', price: '', url: '', description: '' }); setShowForm(false); await load(); } catch (e) { setError(e instanceof Error ? e.message : 'Unable to save.'); } finally { setBusy(false); } }
-  function remove(id: string, name: string) { Alert.alert(`Remove ${name}?`, 'This item will be removed from your seller workspace.', [{ text: 'Cancel', style: 'cancel' }, { text: 'Remove', style: 'destructive', onPress: async () => { await sellerApi.remove(kind, id); await load(); } }]); }
-  return <Screen><Header eyebrow="SELLER INVENTORY" title="Workspace" action={<PrimaryButton style={styles.add} onPress={() => setShowForm(true)}><Ionicons name="add" size={23} color="#fff" /></PrimaryButton>} />
-    <View style={styles.segment}>{(['product', 'catalog'] as Kind[]).map((item) => <Pressable key={item} onPress={() => setKind(item)} style={[styles.segmentItem, kind === item && styles.segmentActive]}><Text style={[styles.segmentText, kind === item && styles.segmentTextActive]}>{item === 'product' ? 'Products' : 'Catalogs'}</Text></Pressable>)}</View>
-    {loading ? <View style={styles.loader}><IOSSpinner /></View> : <ScrollView contentContainerStyle={ui.content}>{error ? <Text style={styles.error}>{error}</Text> : null}{items.length ? items.map((item: any) => <GlassCard key={item.id} style={styles.item}><View style={styles.itemIcon}><Ionicons name={kind === 'product' ? 'cube-outline' : 'document-text-outline'} size={22} color={colors.accent} /></View><View style={{ flex: 1 }}><Text style={styles.itemTitle}>{item.name}</Text><Text numberOfLines={2} style={styles.itemBody}>{kind === 'product' ? [item.sku, item.category, item.price ? `$${item.price}` : ''].filter(Boolean).join(' · ') || 'Draft product' : item.url}</Text>{kind === 'product' ? <StatusPill value={item.status || 'Draft'} /> : null}</View><Pressable accessibilityLabel={`Remove ${item.name}`} hitSlop={12} onPress={() => remove(item.id, item.name)}><Ionicons name="trash-outline" size={19} color={colors.muted} /></Pressable></GlassCard>) : <GlassCard style={styles.empty}><Ionicons name={kind === 'product' ? 'cube-outline' : 'documents-outline'} size={35} color={colors.muted} /><Text style={styles.emptyTitle}>No {kind === 'product' ? 'products' : 'catalogs'} yet</Text><Text style={ui.body}>Add your first {kind} to the synchronized seller workspace.</Text></GlassCard>}</ScrollView>}
-    <Modal visible={showForm} transparent animationType="slide" onRequestClose={() => setShowForm(false)}><View style={styles.overlay}><GlassCard style={styles.sheet}><View style={styles.sheetHead}><View><Text style={ui.label}>NEW {kind.toUpperCase()}</Text><Text style={ui.sectionTitle}>Add to workspace</Text></View><Pressable onPress={() => setShowForm(false)}><Ionicons name="close-circle" size={30} color={colors.muted} /></Pressable></View><ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{ gap: 10 }}><TextInput style={ui.input} value={form.name} onChangeText={(name) => setForm({ ...form, name })} placeholder={`${kind === 'product' ? 'Product' : 'Catalog'} name`} placeholderTextColor="#657186" />{kind === 'product' ? <><TextInput style={ui.input} value={form.sku} onChangeText={(sku) => setForm({ ...form, sku })} placeholder="SKU" placeholderTextColor="#657186" /><TextInput style={ui.input} value={form.category} onChangeText={(category) => setForm({ ...form, category })} placeholder="Category" placeholderTextColor="#657186" /><TextInput keyboardType="decimal-pad" style={ui.input} value={form.price} onChangeText={(price) => setForm({ ...form, price })} placeholder="Price" placeholderTextColor="#657186" /></> : <TextInput autoCapitalize="none" keyboardType="url" style={ui.input} value={form.url} onChangeText={(url) => setForm({ ...form, url })} placeholder="https://catalog-url.com" placeholderTextColor="#657186" />}<TextInput multiline style={[ui.input, ui.textarea]} value={form.description} onChangeText={(description) => setForm({ ...form, description })} placeholder="Description" placeholderTextColor="#657186" />{error ? <Text style={styles.error}>{error}</Text> : null}<PrimaryButton loading={busy} onPress={save}>Save {kind}</PrimaryButton></ScrollView></GlassCard></View></Modal>
-  </Screen>;
+
+  async function save() {
+    if (!form.name.trim() || (kind === 'catalog' && !form.url.trim())) return setError('Complete the required fields.');
+    setBusy(true);
+    setError('');
+    try {
+      await sellerApi.create(kind, form);
+      setForm({ name: '', sku: '', category: '', price: '', url: '', description: '' });
+      setShowForm(false);
+      await load();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Unable to save.');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  function remove(id: string, name: string) {
+    Alert.alert(`Remove ${name}?`, 'This item will be removed from your seller workspace.', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Remove',
+        style: 'destructive',
+        onPress: () => {
+          void (async () => {
+            try {
+              await sellerApi.remove(kind, id);
+              await load();
+            } catch (e) {
+              setError(e instanceof Error ? e.message : 'Unable to remove this item.');
+            }
+          })();
+        },
+      },
+    ]);
+  }
+
+  return (
+    <Screen>
+      <Header eyebrow="SELLER INVENTORY" title="Workspace" action={<PrimaryButton style={styles.add} onPress={() => setShowForm(true)}><Ionicons name="add" size={23} color={colors.inverse} /></PrimaryButton>} />
+      <View style={styles.segment}>
+        {(['product', 'catalog'] as Kind[]).map((item) => (
+          <Pressable key={item} onPress={() => setKind(item)} style={[styles.segmentItem, kind === item && styles.segmentActive]}>
+            <Text style={[styles.segmentText, kind === item && styles.segmentTextActive]}>{item === 'product' ? 'Products' : 'Catalogs'}</Text>
+          </Pressable>
+        ))}
+      </View>
+
+      {loading ? <View style={styles.loader}><IOSSpinner /></View> : (
+        <ScrollView contentContainerStyle={ui.content}>
+          {error ? <GlassCard style={styles.errorCard}><Text style={styles.error}>{error}</Text><PrimaryButton tone="quiet" onPress={() => void load()}>Retry</PrimaryButton></GlassCard> : null}
+          {items.length ? items.map((item: any) => (
+            <GlassCard key={item.id} style={styles.item}>
+              <View style={styles.itemIcon}><Ionicons name={kind === 'product' ? 'cube-outline' : 'document-text-outline'} size={22} color={colors.accent} /></View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.itemTitle}>{item.name}</Text>
+                <Text numberOfLines={2} style={styles.itemBody}>{kind === 'product' ? [item.sku, item.category, item.price ? `$${item.price}` : ''].filter(Boolean).join(' · ') || 'Draft product' : item.url}</Text>
+                {kind === 'product' ? <StatusPill value={item.status || 'Draft'} /> : null}
+              </View>
+              <Pressable accessibilityLabel={`Remove ${item.name}`} hitSlop={12} onPress={() => remove(item.id, item.name)}><Ionicons name="trash-outline" size={19} color={colors.muted} /></Pressable>
+            </GlassCard>
+          )) : (
+            <GlassCard style={styles.empty}>
+              <View style={styles.emptyIcon}><Ionicons name={kind === 'product' ? 'cube-outline' : 'documents-outline'} size={32} color={colors.accent} /></View>
+              <Text style={styles.emptyTitle}>No {kind === 'product' ? 'products' : 'catalogs'} yet</Text>
+              <Text style={ui.body}>Add your first {kind} to the synchronized seller workspace.</Text>
+            </GlassCard>
+          )}
+        </ScrollView>
+      )}
+
+      <Modal visible={showForm} transparent animationType="slide" onRequestClose={() => setShowForm(false)}>
+        <View style={styles.overlay}>
+          <GlassCard style={styles.sheet}>
+            <View style={styles.sheetHead}>
+              <View><Text style={ui.label}>NEW {kind.toUpperCase()}</Text><Text style={ui.sectionTitle}>Add to workspace</Text></View>
+              <Pressable onPress={() => setShowForm(false)}><Ionicons name="close-circle" size={30} color={colors.muted} /></Pressable>
+            </View>
+            <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{ gap: 10 }}>
+              <TextInput style={ui.input} value={form.name} onChangeText={(name) => setForm({ ...form, name })} placeholder={`${kind === 'product' ? 'Product' : 'Catalog'} name`} placeholderTextColor={colors.muted} />
+              {kind === 'product' ? <>
+                <TextInput style={ui.input} value={form.sku} onChangeText={(sku) => setForm({ ...form, sku })} placeholder="SKU" placeholderTextColor={colors.muted} />
+                <TextInput style={ui.input} value={form.category} onChangeText={(category) => setForm({ ...form, category })} placeholder="Category" placeholderTextColor={colors.muted} />
+                <TextInput keyboardType="decimal-pad" style={ui.input} value={form.price} onChangeText={(price) => setForm({ ...form, price })} placeholder="Price" placeholderTextColor={colors.muted} />
+              </> : <TextInput autoCapitalize="none" keyboardType="url" style={ui.input} value={form.url} onChangeText={(url) => setForm({ ...form, url })} placeholder="https://catalog-url.com" placeholderTextColor={colors.muted} />}
+              <TextInput multiline style={[ui.input, ui.textarea]} value={form.description} onChangeText={(description) => setForm({ ...form, description })} placeholder="Description" placeholderTextColor={colors.muted} />
+              {error ? <Text style={styles.error}>{error}</Text> : null}
+              <PrimaryButton loading={busy} onPress={save}>{`Save ${kind}`}</PrimaryButton>
+            </ScrollView>
+          </GlassCard>
+        </View>
+      </Modal>
+    </Screen>
+  );
 }
-const styles = StyleSheet.create({ add: { width: 44, minHeight: 44, paddingHorizontal: 0 }, segment: { flexDirection: 'row', marginHorizontal: 18, marginBottom: 17, padding: 4, borderRadius: 15, backgroundColor: 'rgba(255,255,255,.07)' }, segmentItem: { flex: 1, minHeight: 39, alignItems: 'center', justifyContent: 'center', borderRadius: 12 }, segmentActive: { backgroundColor: 'rgba(255,255,255,.13)' }, segmentText: { color: colors.muted, fontWeight: '700' }, segmentTextActive: { color: colors.ink }, loader: { flex: 1, alignItems: 'center', justifyContent: 'center' }, error: { color: colors.danger, fontSize: 13, lineHeight: 18 }, item: { padding: 16, flexDirection: 'row', alignItems: 'flex-start', gap: 13 }, itemIcon: { width: 43, height: 43, borderRadius: 15, backgroundColor: 'rgba(101,185,255,.10)', alignItems: 'center', justifyContent: 'center' }, itemTitle: { color: colors.ink, fontWeight: '700', fontSize: 16 }, itemBody: { color: colors.muted, marginTop: 4, marginBottom: 10, fontSize: 12, lineHeight: 17 }, empty: { padding: 30, alignItems: 'center', gap: 10 }, emptyTitle: { color: colors.ink, fontSize: 18, fontWeight: '700' }, overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,.65)', justifyContent: 'flex-end' }, sheet: { maxHeight: '88%', borderBottomLeftRadius: 0, borderBottomRightRadius: 0, padding: 19, paddingBottom: 35 }, sheetHead: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 17 } });
+
+function createStyles(colors: AppColors) {
+  return StyleSheet.create({
+    add: { width: 44, minHeight: 44, paddingHorizontal: 0 },
+    segment: { flexDirection: 'row', marginHorizontal: 18, marginBottom: 17, padding: 4, borderRadius: 16, backgroundColor: colors.chip, borderWidth: 1, borderColor: colors.border },
+    segmentItem: { flex: 1, minHeight: 40, alignItems: 'center', justifyContent: 'center', borderRadius: 12 },
+    segmentActive: { backgroundColor: colors.surfaceStrong },
+    segmentText: { color: colors.muted, fontWeight: '700' },
+    segmentTextActive: { color: colors.ink },
+    loader: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+    errorCard: { padding: 16, gap: 12 },
+    error: { color: colors.danger, fontSize: 13, lineHeight: 18 },
+    item: { padding: 16, flexDirection: 'row', alignItems: 'flex-start', gap: 13 },
+    itemIcon: { width: 43, height: 43, borderRadius: 15, backgroundColor: colors.accentSoft, alignItems: 'center', justifyContent: 'center' },
+    itemTitle: { color: colors.ink, fontWeight: '800', fontSize: 16 },
+    itemBody: { color: colors.muted, marginTop: 4, marginBottom: 10, fontSize: 12, lineHeight: 17 },
+    empty: { padding: 30, alignItems: 'center', gap: 10 },
+    emptyIcon: { width: 54, height: 54, borderRadius: 18, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.accentSoft },
+    emptyTitle: { color: colors.ink, fontSize: 18, fontWeight: '800' },
+    overlay: { flex: 1, backgroundColor: colors.overlay, justifyContent: 'flex-end' },
+    sheet: { maxHeight: '88%', borderBottomLeftRadius: 0, borderBottomRightRadius: 0, padding: 19, paddingBottom: 35 },
+    sheetHead: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 17 },
+  });
+}
