@@ -43,17 +43,43 @@ function Read-DotEnv {
 
 $envValues = Read-DotEnv
 
-# This app was originally sharing a Next.js-style .env. Expo only exposes
-# EXPO_PUBLIC_* variables to the client bundle, so migrate compatible names
-# automatically without printing any secret values.
+# Expo client-side environment variables MUST use EXPO_PUBLIC_*.
+# Migrate values from the old Next.js names as well as the accidental
+# EXPO_NEXT_PUBLIC_* names created during an earlier repair attempt.
 $aliases = [ordered]@{
-  'EXPO_PUBLIC_FIREBASE_API_KEY' = @('NEXT_PUBLIC_FIREBASE_API_KEY')
-  'EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN' = @('NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN')
-  'EXPO_PUBLIC_FIREBASE_DATABASE_URL' = @('NEXT_PUBLIC_FIREBASE_DB_URL', 'FIREBASE_DB_URL', 'CLOUD_FIREBASE_DB_URL')
-  'EXPO_PUBLIC_FIREBASE_PROJECT_ID' = @('NEXT_PUBLIC_FIREBASE_PROJECT_ID', 'FIREBASE_PROJECT_ID')
-  'EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET' = @('NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET')
-  'EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID' = @('NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID')
-  'EXPO_PUBLIC_FIREBASE_APP_ID' = @('NEXT_PUBLIC_FIREBASE_APP_ID')
+  'EXPO_PUBLIC_FIREBASE_API_KEY' = @(
+    'EXPO_NEXT_PUBLIC_FIREBASE_API_KEY',
+    'NEXT_PUBLIC_FIREBASE_API_KEY'
+  )
+  'EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN' = @(
+    'EXPO_NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN',
+    'NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN'
+  )
+  'EXPO_PUBLIC_FIREBASE_DATABASE_URL' = @(
+    'EXPO_NEXT_PUBLIC_FIREBASE_DATABASE_URL',
+    'EXPO_NEXT_PUBLIC_FIREBASE_DB_URL',
+    'NEXT_PUBLIC_FIREBASE_DATABASE_URL',
+    'NEXT_PUBLIC_FIREBASE_DB_URL',
+    'FIREBASE_DB_URL',
+    'CLOUD_FIREBASE_DB_URL'
+  )
+  'EXPO_PUBLIC_FIREBASE_PROJECT_ID' = @(
+    'EXPO_NEXT_PUBLIC_FIREBASE_PROJECT_ID',
+    'NEXT_PUBLIC_FIREBASE_PROJECT_ID',
+    'FIREBASE_PROJECT_ID'
+  )
+  'EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET' = @(
+    'EXPO_NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET',
+    'NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET'
+  )
+  'EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID' = @(
+    'EXPO_NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID',
+    'NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID'
+  )
+  'EXPO_PUBLIC_FIREBASE_APP_ID' = @(
+    'EXPO_NEXT_PUBLIC_FIREBASE_APP_ID',
+    'NEXT_PUBLIC_FIREBASE_APP_ID'
+  )
 }
 
 $added = @()
@@ -72,7 +98,7 @@ foreach ($target in $aliases.Keys) {
 }
 
 if ($added.Count -gt 0) {
-  Write-Host "Migrated Firebase variable names for Expo:" -ForegroundColor Green
+  Write-Host "Migrated Firebase variable names to EXPO_PUBLIC_*:" -ForegroundColor Green
   $added | ForEach-Object { Write-Host "  $_" -ForegroundColor DarkGreen }
   $envValues = Read-DotEnv
 }
@@ -97,7 +123,7 @@ foreach ($name in $requiredEnv) {
 if ($missing.Count -gt 0) {
   Write-Host "ERROR: These Firebase values are still missing/blank in .env:" -ForegroundColor Red
   $missing | ForEach-Object { Write-Host "  - $_" -ForegroundColor Red }
-  Write-Host "The repair script could not find matching NEXT_PUBLIC/FIREBASE values to migrate." -ForegroundColor Yellow
+  Write-Host "No compatible legacy Firebase value was found for the missing names." -ForegroundColor Yellow
   exit 1
 }
 
