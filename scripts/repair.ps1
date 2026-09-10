@@ -6,6 +6,23 @@ Set-Location $Root
 Write-Host "`nAuronix Seller - Expo SDK 57 repair" -ForegroundColor Cyan
 Write-Host "Project: $Root`n"
 
+$nodeRaw = (& node -v).Trim().TrimStart('v')
+try {
+  $nodeVersion = [version]$nodeRaw
+} catch {
+  Write-Host "ERROR: Could not read your Node.js version." -ForegroundColor Red
+  exit 1
+}
+
+$minimumNode = [version]'22.13.0'
+if ($nodeVersion -lt $minimumNode) {
+  Write-Host "ERROR: Expo SDK 57 requires Node.js 22.13.0 or newer." -ForegroundColor Red
+  Write-Host "Installed Node.js: v$nodeRaw" -ForegroundColor Yellow
+  Write-Host "Update Node.js, reopen PowerShell, then run npm run repair again." -ForegroundColor Yellow
+  exit 1
+}
+Write-Host "Node.js v$nodeRaw: OK" -ForegroundColor Green
+
 if (-not (Test-Path ".env")) {
   Write-Host "ERROR: .env was not found at $Root\.env" -ForegroundColor Red
   exit 1
