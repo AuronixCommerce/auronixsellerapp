@@ -6,7 +6,6 @@
     "orientation": "portrait",
     "scheme": "auronixseller",
     "userInterfaceStyle": "automatic",
-    "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.auronixcommerce.seller"
@@ -15,8 +14,7 @@
       "package": "com.auronixcommerce.seller",
       "adaptiveIcon": {
         "backgroundColor": "#07111F"
-      },
-      "edgeToEdgeEnabled": true
+      }
     },
     "web": {
       "bundler": "metro"
