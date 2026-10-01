@@ -1,6 +1,6 @@
 import { auth } from '@/src/lib/firebase';
 import { API_URL, cachedGet, invalidateCache, request, SellerApiError } from '@/src/services/http';
-import type { Catalog } from '@/src/types';
+import type { Catalog, ProductOpportunity } from '@/src/types';
 
 export type CatalogUploadAsset = { uri: string; name: string; mimeType?: string | null; size?: number | null };
 
@@ -22,7 +22,7 @@ function uploadRequest(form: FormData, token: string, onProgress?: (progress: nu
       let body: any = {};
       try { body = JSON.parse(xhr.responseText || '{}'); } catch {}
       if (xhr.status < 200 || xhr.status >= 300) {
-        reject(new SellerApiError(body?.error || 'Unable to upload this catalog.', { status: xhr.status }));
+        reject(new SellerApiError(body?.error || 'Unable to upload this catalog.', { status: xhr.status, code: body?.code }));
         return;
       }
       onProgress?.(100);
@@ -49,9 +49,24 @@ export const catalogService = {
     return body;
   },
 
+  async analyze(id: string) {
+    const result = await request<{ success: true; opportunities: ProductOpportunity[]; itemCount: number; analyzedSampleCount: number }>('/api/seller/catalogs/analyze', {
+      method: 'POST',
+      body: JSON.stringify({ id }),
+    });
+    await Promise.all([invalidateCache('catalogs'), invalidateCache('catalog-opportunities'), invalidateCache('overview')]);
+    return result;
+  },
+
+  opportunities: (catalogId?: string, force = false) => cachedGet<{ opportunities: ProductOpportunity[]; serverTime: number }>(
+    `catalog-opportunities:${catalogId || 'all'}`,
+    `/api/seller/catalogs/analyze${catalogId ? `?catalogId=${encodeURIComponent(catalogId)}` : ''}`,
+    { force, maxAgeMs: 60_000 },
+  ),
+
   async remove(id: string) {
     const result = await request<{ success: true }>(`/api/seller/catalogs?id=${encodeURIComponent(id)}`, { method: 'DELETE' });
-    await Promise.all([invalidateCache('catalogs'), invalidateCache('overview')]);
+    await Promise.all([invalidateCache('catalogs'), invalidateCache('catalog-opportunities'), invalidateCache('overview')]);
     return result;
   },
 };
