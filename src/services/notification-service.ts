@@ -1,8 +1,11 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Constants from 'expo-constants';
-import * as Notifications from 'expo-notifications';
 import { Platform } from 'react-native';
 import { request } from '@/src/services/http';
+
+declare const require: (id: string) => unknown;
+
+type NotificationsModule = typeof import('expo-notifications');
 
 const TOKEN_KEY = 'auronix.seller.expo-push-token.v1';
 const INSTALLATION_KEY = 'auronix.seller.installation-id.v1';
@@ -17,14 +20,40 @@ export type NotificationPreferences = {
   updatedAt?: number;
 };
 
-Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowBanner: true,
-    shouldShowList: true,
-    shouldPlaySound: true,
-    shouldSetBadge: true,
-  }),
-});
+let notificationsModule: NotificationsModule | null | undefined;
+let handlerConfigured = false;
+
+function isExpoGo() {
+  return Constants.executionEnvironment === 'storeClient';
+}
+
+function nativeNotifications(): NotificationsModule | null {
+  if (notificationsModule !== undefined) return notificationsModule;
+  if (isExpoGo()) {
+    notificationsModule = null;
+    return null;
+  }
+
+  try {
+    notificationsModule = require('expo-notifications') as NotificationsModule;
+    if (!handlerConfigured) {
+      notificationsModule.setNotificationHandler({
+        handleNotification: async () => ({
+          shouldShowBanner: true,
+          shouldShowList: true,
+          shouldPlaySound: true,
+          shouldSetBadge: true,
+        }),
+      });
+      handlerConfigured = true;
+    }
+    return notificationsModule;
+  } catch (error) {
+    console.warn('Native push notifications are unavailable in this runtime.', error);
+    notificationsModule = null;
+    return null;
+  }
+}
 
 async function installationId() {
   const existing = await AsyncStorage.getItem(INSTALLATION_KEY).catch(() => null);
@@ -39,7 +68,12 @@ function projectId() {
 }
 
 export const notificationService = {
+  isExpoGo,
+
   async register() {
+    const Notifications = nativeNotifications();
+    if (!Notifications) return { registered: false, reason: 'expo-go' as const };
+
     if (Platform.OS === 'android') {
       await Notifications.setNotificationChannelAsync('seller-updates', {
         name: 'Seller Updates',
@@ -86,15 +120,21 @@ export const notificationService = {
   },
 
   async systemPermission() {
+    const Notifications = nativeNotifications();
+    if (!Notifications) return { granted: false, status: 'unsupported', supported: false, reason: 'expo-go' as const };
     const permission = await Notifications.getPermissionsAsync();
-    return { granted: permission.granted, status: permission.status };
+    return { granted: permission.granted, status: permission.status, supported: true as const };
   },
 
   addResponseListener(listener: (href: unknown) => void) {
+    const Notifications = nativeNotifications();
+    if (!Notifications) return { remove() {} };
     return Notifications.addNotificationResponseReceivedListener(response => listener(response.notification.request.content.data?.href));
   },
 
   async lastResponseHref() {
+    const Notifications = nativeNotifications();
+    if (!Notifications) return undefined;
     const response = await Notifications.getLastNotificationResponseAsync();
     return response?.notification.request.content.data?.href;
   },
