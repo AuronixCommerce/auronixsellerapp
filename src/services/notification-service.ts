@@ -7,6 +7,16 @@ import { request } from '@/src/services/http';
 const TOKEN_KEY = 'auronix.seller.expo-push-token.v1';
 const INSTALLATION_KEY = 'auronix.seller.installation-id.v1';
 
+export type NotificationPreferences = {
+  account: boolean;
+  products: boolean;
+  catalogs: boolean;
+  support: boolean;
+  security: boolean;
+  marketing: boolean;
+  updatedAt?: number;
+};
+
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
     shouldShowBanner: true,
@@ -62,6 +72,22 @@ export const notificationService = {
     if (!token) return;
     await request(`/api/seller/mobile-push?token=${encodeURIComponent(token)}`, { method: 'DELETE' }).catch(() => undefined);
     await AsyncStorage.removeItem(TOKEN_KEY).catch(() => undefined);
+  },
+
+  async preferences() {
+    return request<{ preferences: NotificationPreferences }>('/api/seller/notification-preferences');
+  },
+
+  async updatePreferences(values: Partial<NotificationPreferences>) {
+    return request<{ success: true; preferences: NotificationPreferences }>('/api/seller/notification-preferences', {
+      method: 'PATCH',
+      body: JSON.stringify(values),
+    });
+  },
+
+  async systemPermission() {
+    const permission = await Notifications.getPermissionsAsync();
+    return { granted: permission.granted, status: permission.status };
   },
 
   addResponseListener(listener: (href: unknown) => void) {
