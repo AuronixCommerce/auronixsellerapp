@@ -6,14 +6,19 @@
     "orientation": "portrait",
     "scheme": "auronixseller",
     "userInterfaceStyle": "automatic",
+    "icon": "./assets/brand/icon.png",
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.auronixcommerce.seller"
+      "bundleIdentifier": "com.auronixcommerce.seller",
+      "buildNumber": "1"
     },
     "android": {
       "package": "com.auronixcommerce.seller",
+      "versionCode": 1,
       "adaptiveIcon": {
-        "backgroundColor": "#07111F"
+        "foregroundImage": "./assets/brand/adaptive-foreground.png",
+        "backgroundColor": "#07111F",
+        "monochromeImage": "./assets/brand/adaptive-foreground.png"
       }
     },
     "web": {
@@ -22,7 +27,20 @@
     "plugins": [
       "expo-router",
       "expo-font",
-      "expo-status-bar"
+      "expo-status-bar",
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/brand/splash-light.png",
+          "backgroundColor": "#F5F8FC",
+          "imageWidth": 178,
+          "resizeMode": "contain",
+          "dark": {
+            "image": "./assets/brand/splash-dark.png",
+            "backgroundColor": "#050A12"
+          }
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true
