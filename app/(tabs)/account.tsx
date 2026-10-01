@@ -1,8 +1,9 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router, useFocusEffect } from 'expo-router';
 import { useCallback, useMemo, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
 import { GlassCard, Header, IOSSpinner, PrimaryButton, Screen, StatusPill, ThemeDot, useUIStyles } from '@/components/ui';
+import { useAppLock } from '@/src/context/app-lock';
 import { useAuth } from '@/src/context/auth';
 import { useAppTheme } from '@/src/context/theme';
 import { sellerApi } from '@/src/lib/api';
@@ -18,6 +19,7 @@ const themeOptions: { value: ThemeMode; label: string; icon: keyof typeof Ionico
 export default function Account() {
   const { user, logout } = useAuth();
   const { colors, mode, setMode } = useAppTheme();
+  const { ready: lockReady, available: lockAvailable, enabled: lockEnabled, biometricName, setEnabled: setLockEnabled, lockNow } = useAppLock();
   const ui = useUIStyles();
   const styles = useMemo(() => createStyles(colors), [colors]);
   const [profile, setProfile] = useState<SellerProfile | null>(null);
@@ -26,6 +28,7 @@ export default function Account() {
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState('');
   const [loadError, setLoadError] = useState('');
+  const [lockMessage, setLockMessage] = useState('');
 
   const load = useCallback(async () => {
     try {
@@ -61,6 +64,18 @@ export default function Account() {
     }
   }
 
+  async function toggleAppLock(next: boolean) {
+    setLockMessage('');
+    const success = await setLockEnabled(next);
+    if (!success) {
+      setLockMessage(lockAvailable ? 'Authentication was cancelled. App Lock was not changed.' : 'No enrolled Face ID or fingerprint is available on this device.');
+    } else if (next) {
+      setLockMessage(`${biometricName} App Lock enabled.`);
+    } else {
+      setLockMessage('App Lock disabled.');
+    }
+  }
+
   async function exit() {
     await logout();
     router.replace('/login');
@@ -72,7 +87,7 @@ export default function Account() {
       {loading ? (
         <View style={styles.loader}><IOSSpinner /></View>
       ) : (
-        <ScrollView contentContainerStyle={ui.content} keyboardShouldPersistTaps="handled">
+        <ScrollView contentContainerStyle={ui.content} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
           {loadError ? <GlassCard style={styles.errorCard}><Text style={styles.errorText}>{loadError}</Text><PrimaryButton tone="quiet" onPress={() => void load()}>Retry</PrimaryButton></GlassCard> : null}
 
           <GlassCard style={styles.identity}>
@@ -98,6 +113,28 @@ export default function Account() {
             })}
           </GlassCard>
 
+          <View><Text style={[ui.sectionTitle, styles.sectionTitle]}>Privacy & security</Text><Text style={styles.sectionBody}>Add a local biometric gate above your signed-in seller session.</Text></View>
+          <GlassCard style={styles.securitySettings}>
+            <View style={styles.lockRow}>
+              <View style={[styles.securityIcon, { backgroundColor: lockEnabled ? colors.successSoft : colors.surfaceSoft }]}>
+                <Ionicons name={lockEnabled ? 'shield-checkmark' : 'finger-print'} size={21} color={lockEnabled ? colors.success : colors.accent} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.securityTitle}>{biometricName} App Lock</Text>
+                <Text style={styles.securityBody}>{!lockReady ? 'Checking device security…' : lockAvailable ? 'Lock Auronix Seller whenever it leaves the foreground.' : 'Enroll biometrics in your phone settings to enable this feature.'}</Text>
+              </View>
+              <Switch
+                value={lockEnabled}
+                disabled={!lockReady || !lockAvailable}
+                onValueChange={(next) => void toggleAppLock(next)}
+                trackColor={{ false: colors.borderStrong, true: colors.accentStrong }}
+                thumbColor={colors.inverse}
+              />
+            </View>
+            {lockMessage ? <Text style={[styles.lockMessage, lockMessage.includes('enabled') && { color: colors.success }]}>{lockMessage}</Text> : null}
+            {lockEnabled ? <PrimaryButton tone="quiet" onPress={lockNow}><Ionicons name="lock-closed-outline" size={18} color={colors.ink} /><Text style={styles.lockNowText}>Lock app now</Text></PrimaryButton> : null}
+          </GlassCard>
+
           <View><Text style={[ui.sectionTitle, styles.sectionTitle]}>Seller profile</Text><Text style={styles.sectionBody}>Keep the information shown to Auronix support and seller operations current.</Text></View>
           <GlassCard style={styles.form}>
             <Text style={ui.label}>Display name</Text><TextInput style={ui.input} value={form.displayName} onChangeText={(displayName) => setForm({ ...form, displayName })} placeholderTextColor={colors.muted} />
@@ -108,7 +145,7 @@ export default function Account() {
             <PrimaryButton loading={busy} onPress={save}>Save profile</PrimaryButton>
           </GlassCard>
 
-          <GlassCard style={styles.security}><View style={styles.securityIcon}><Ionicons name="shield-checkmark-outline" size={21} color={colors.success} /></View><View style={{ flex: 1 }}><Text style={styles.securityTitle}>Secure seller session</Text><Text style={styles.securityBody}>Authentication is handled through your approved seller account.</Text></View></GlassCard>
+          <GlassCard style={styles.security}><View style={styles.securityIcon}><Ionicons name="shield-checkmark-outline" size={21} color={colors.success} /></View><View style={{ flex: 1 }}><Text style={styles.securityTitle}>Secure seller session</Text><Text style={styles.securityBody}>Authentication is handled through your approved seller account and protected locally when App Lock is enabled.</Text></View></GlassCard>
           <PrimaryButton tone="danger" onPress={exit}><View style={ui.row}><Ionicons name="log-out-outline" color={colors.danger} size={19} /><Text style={styles.logout}>Sign out</Text></View></PrimaryButton>
         </ScrollView>
       )}
@@ -135,6 +172,10 @@ function createStyles(colors: AppColors) {
     themeIconActive: { backgroundColor: colors.accentSoft },
     themeTitle: { color: colors.ink, fontSize: 14, fontWeight: '800' },
     themeMeta: { color: colors.muted, fontSize: 10, marginTop: 3 },
+    securitySettings: { padding: 16, gap: 12 },
+    lockRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+    lockMessage: { color: colors.muted, fontSize: 11, lineHeight: 16 },
+    lockNowText: { color: colors.ink, fontSize: 13, fontWeight: '800' },
     form: { padding: 18, gap: 10 },
     message: { color: colors.danger, fontSize: 12 },
     security: { padding: 16, flexDirection: 'row', alignItems: 'center', gap: 12 },
