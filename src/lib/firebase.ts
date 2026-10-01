@@ -1,11 +1,10 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getApp, getApps, initializeApp, type FirebaseOptions } from 'firebase/app';
-import {
-  getAuth,
-  getReactNativePersistence,
-  initializeAuth,
-  type Auth,
-} from 'firebase/auth';
+import { getAuth, initializeAuth, type Auth } from 'firebase/auth';
+// Firebase exposes this from its React Native conditional auth bundle at runtime,
+// while TypeScript's generic package export map can omit it during CI resolution.
+// @ts-expect-error React Native conditional export
+import { getReactNativePersistence } from 'firebase/auth';
 import { getDatabase } from 'firebase/database';
 
 const clean = (value: string | undefined) => value?.trim().replace(/^['"]|['"]$/g, '');
