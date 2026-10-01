@@ -3,7 +3,16 @@ import { queueOperation } from '@/src/services/offline-sync';
 import type { Product } from '@/src/types';
 
 export type ProductQuery = { q?: string; status?: string; sort?: string };
-export type ProductInput = Partial<Product> & { name: string };
+type NumericWrite = string | number | null | undefined;
+export type ProductMutation = Omit<Partial<Product>, 'cost' | 'sellingPrice' | 'marketplaceFees' | 'fulfillmentFees' | 'inventoryQuantity' | 'lowStockThreshold'> & {
+  cost?: NumericWrite;
+  sellingPrice?: NumericWrite;
+  marketplaceFees?: NumericWrite;
+  fulfillmentFees?: NumericWrite;
+  inventoryQuantity?: NumericWrite;
+  lowStockThreshold?: NumericWrite;
+};
+export type ProductInput = ProductMutation & { name: string };
 
 function queryString(query: ProductQuery = {}) {
   const params = new URLSearchParams();
@@ -39,13 +48,13 @@ export const productService = {
     } catch (error) {
       if (error instanceof SellerApiError && error.offline) {
         const operation = await queueOperation({ entity: 'product', action: 'create', path: '/api/seller/products', method: 'POST', payload: values as Record<string, unknown> });
-        return { success: true as const, product: { id: `offline-${operation.id}`, ...values, status: values.status || 'draft' } as Product, queued: true };
+        return { success: true as const, product: { id: `offline-${operation.id}`, name: values.name, status: values.status || 'draft' } as Product, queued: true };
       }
       throw error;
     }
   },
 
-  async update(id: string, values: Partial<Product>) {
+  async update(id: string, values: ProductMutation) {
     const payload = { id, ...values, expectedVersion: values.version };
     try {
       const result = await request<{ success: true; product: Product }>('/api/seller/products', { method: 'PATCH', body: JSON.stringify(payload) });
@@ -54,7 +63,7 @@ export const productService = {
     } catch (error) {
       if (error instanceof SellerApiError && error.offline) {
         await queueOperation({ entity: 'product', action: 'update', path: '/api/seller/products', method: 'PATCH', payload: payload as Record<string, unknown> });
-        return { success: true as const, product: { id, ...values } as Product, queued: true };
+        return { success: true as const, product: { id, name: String(values.name || ''), status: values.status } as Product, queued: true };
       }
       throw error;
     }
