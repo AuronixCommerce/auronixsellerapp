@@ -29,6 +29,12 @@
       "expo-font",
       "expo-status-bar",
       [
+        "expo-local-authentication",
+        {
+          "faceIDPermission": "Allow Auronix Seller to use Face ID to protect your seller workspace."
+        }
+      ],
+      [
         "expo-splash-screen",
         {
           "image": "./assets/brand/splash-light.png",
