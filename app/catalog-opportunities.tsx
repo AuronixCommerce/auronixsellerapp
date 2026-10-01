@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { router, useLocalSearchParams } from 'expo-router';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { GlassCard, IOSSpinner, PrimaryButton, Screen, StatusPill, useUIStyles } from '@/components/ui';
 import { useAppTheme } from '@/src/context/theme';
@@ -40,7 +40,7 @@ export default function CatalogOpportunities() {
     }
   }, [catalogId]);
 
-  useMemo(() => { void load(false); return null; }, [load]);
+  useEffect(() => { void load(false); }, [load]);
 
   async function createDraft(item: ProductOpportunity) {
     setCreating(item.id);
