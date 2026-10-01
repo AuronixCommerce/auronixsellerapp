@@ -5,6 +5,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { AppState, View } from 'react-native';
 import { AppLockScreen } from '@/components/app-lock-screen';
 import { BrandSplash } from '@/components/brand-splash';
+import { UpdateGate } from '@/components/update-gate';
 import { AppLockProvider, useAppLock } from '@/src/context/app-lock';
 import { AuthProvider, useAuth } from '@/src/context/auth';
 import { ThemeProvider, useAppTheme } from '@/src/context/theme';
@@ -84,7 +85,9 @@ function AppShell() {
 export default function RootLayout() {
   return (
     <ThemeProvider>
-      <AppShell />
+      <UpdateGate>
+        <AppShell />
+      </UpdateGate>
     </ThemeProvider>
   );
 }
