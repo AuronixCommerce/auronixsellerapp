@@ -4,6 +4,7 @@ dist/
 dist-test/
 .env
 .env.local
+assets/brand/*.png
 *.jks
 *.p8
 *.p12
