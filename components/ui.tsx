@@ -1,9 +1,11 @@
 import { BlurView } from 'expo-blur';
+import { GlassView, isGlassEffectAPIAvailable } from 'expo-glass-effect';
 import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Children, useEffect, useMemo, useRef, type PropsWithChildren, type ReactNode } from 'react';
 import {
   Animated,
+  Platform,
   Pressable,
   StyleSheet,
   Text,
@@ -17,6 +19,14 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAppTheme } from '@/src/context/theme';
 import { shadows } from '@/src/theme';
 
+const nativeLiquidGlass = Platform.OS === 'ios' && (() => {
+  try {
+    return isGlassEffectAPIAvailable();
+  } catch {
+    return false;
+  }
+})();
+
 export function useUIStyles() {
   const { colors } = useAppTheme();
   return useMemo(() => StyleSheet.create<{
@@ -28,7 +38,7 @@ export function useUIStyles() {
     sectionTitle: TextStyle;
     row: ViewStyle;
   }>({
-    content: { paddingHorizontal: 18, paddingBottom: 125, gap: 14 },
+    content: { paddingHorizontal: 18, paddingBottom: 128, gap: 14 },
     body: { color: colors.muted, fontSize: 14, lineHeight: 21 },
     label: { color: colors.muted, fontSize: 10, letterSpacing: 1.25, textTransform: 'uppercase', fontWeight: '800' },
     input: {
@@ -42,17 +52,56 @@ export function useUIStyles() {
       fontSize: 16,
     },
     textarea: { minHeight: 125, paddingTop: 16, textAlignVertical: 'top' },
-    sectionTitle: { color: colors.ink, fontSize: 20, fontWeight: '800', letterSpacing: -0.45 },
+    sectionTitle: { color: colors.ink, fontSize: 20, fontWeight: '900', letterSpacing: -0.5 },
     row: { flexDirection: 'row', alignItems: 'center' },
   }), [colors]);
 }
 
 export function Screen({ children, style }: PropsWithChildren<{ style?: StyleProp<ViewStyle> }>) {
   const { colors } = useAppTheme();
+  const driftOne = useRef(new Animated.Value(0)).current;
+  const driftTwo = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    const a = Animated.loop(Animated.sequence([
+      Animated.timing(driftOne, { toValue: 1, duration: 9000, useNativeDriver: true }),
+      Animated.timing(driftOne, { toValue: 0, duration: 9000, useNativeDriver: true }),
+    ]));
+    const b = Animated.loop(Animated.sequence([
+      Animated.timing(driftTwo, { toValue: 1, duration: 11000, useNativeDriver: true }),
+      Animated.timing(driftTwo, { toValue: 0, duration: 11000, useNativeDriver: true }),
+    ]));
+    a.start();
+    b.start();
+    return () => { a.stop(); b.stop(); };
+  }, [driftOne, driftTwo]);
+
   return (
     <LinearGradient colors={[...colors.gradient]} style={[styles.screen, { backgroundColor: colors.background }]}>
-      <View pointerEvents="none" style={[styles.orbOne, { backgroundColor: colors.orbOne }]} />
-      <View pointerEvents="none" style={[styles.orbTwo, { backgroundColor: colors.orbTwo }]} />
+      <Animated.View
+        pointerEvents="none"
+        style={[
+          styles.orbOne,
+          { backgroundColor: colors.orbOne },
+          { transform: [
+            { translateX: driftOne.interpolate({ inputRange: [0, 1], outputRange: [0, -28] }) },
+            { translateY: driftOne.interpolate({ inputRange: [0, 1], outputRange: [0, 34] }) },
+            { scale: driftOne.interpolate({ inputRange: [0, 1], outputRange: [1, 1.08] }) },
+          ] },
+        ]}
+      />
+      <Animated.View
+        pointerEvents="none"
+        style={[
+          styles.orbTwo,
+          { backgroundColor: colors.orbTwo },
+          { transform: [
+            { translateX: driftTwo.interpolate({ inputRange: [0, 1], outputRange: [0, 42] }) },
+            { translateY: driftTwo.interpolate({ inputRange: [0, 1], outputRange: [0, -24] }) },
+            { scale: driftTwo.interpolate({ inputRange: [0, 1], outputRange: [1, 1.12] }) },
+          ] },
+        ]}
+      />
       <SafeAreaView edges={['top', 'left', 'right']} style={[styles.safe, style]}>{children}</SafeAreaView>
     </LinearGradient>
   );
@@ -60,12 +109,30 @@ export function Screen({ children, style }: PropsWithChildren<{ style?: StylePro
 
 export function GlassCard({ children, style }: PropsWithChildren<{ style?: StyleProp<ViewStyle> }>) {
   const { colors, isDark } = useAppTheme();
+  const shell = [styles.glass, shadows.card, { borderColor: colors.border }, style];
+  const highlight = <View pointerEvents="none" style={[styles.glassHighlight, { backgroundColor: isDark ? 'rgba(255,255,255,.055)' : 'rgba(255,255,255,.38)' }]} />;
+
+  if (nativeLiquidGlass) {
+    return (
+      <GlassView
+        glassEffectStyle="regular"
+        isInteractive={false}
+        tintColor={isDark ? 'rgba(8,18,32,.28)' : 'rgba(255,255,255,.30)'}
+        style={shell}
+      >
+        {highlight}
+        {children}
+      </GlassView>
+    );
+  }
+
   return (
     <BlurView
-      intensity={isDark ? 38 : 54}
+      intensity={isDark ? 42 : 58}
       tint={colors.glassTint}
-      style={[styles.glass, shadows.card, { borderColor: colors.border, backgroundColor: colors.surface }, style]}
+      style={[...shell, { backgroundColor: colors.surface }]}
     >
+      {highlight}
       {children}
     </BlurView>
   );
@@ -144,15 +211,21 @@ export function PrimaryButton({ children, loading, tone = 'accent', ...props }: 
       {...props}
       disabled={props.disabled || loading}
       onPress={(event) => {
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => undefined);
         props.onPress?.(event);
       }}
       style={(state) => [
         styles.button,
-        { backgroundColor, borderColor: tone === 'accent' ? colors.accentStrong : colors.border, opacity: props.disabled ? 0.45 : state.pressed ? 0.72 : 1 },
+        {
+          backgroundColor,
+          borderColor: tone === 'accent' ? colors.accentStrong : colors.border,
+          opacity: props.disabled ? 0.45 : state.pressed ? 0.86 : 1,
+          transform: [{ scale: state.pressed ? 0.975 : 1 }],
+        },
         typeof props.style === 'function' ? props.style(state) : props.style,
       ]}
     >
+      {tone === 'accent' ? <View pointerEvents="none" style={styles.buttonSheen} /> : null}
       {loading ? <IOSSpinner size={20} color={textColor} /> : content}
     </Pressable>
   );
@@ -191,16 +264,28 @@ export function ThemeDot({ active }: { active: boolean }) {
   return <View style={[styles.themeDot, { borderColor: active ? colors.accent : colors.borderStrong }, active && { backgroundColor: colors.accent }]} />;
 }
 
+export function LiveIndicator({ label = 'Live' }: { label?: string }) {
+  const { colors } = useAppTheme();
+  return (
+    <View style={styles.liveRow}>
+      <View style={[styles.liveDot, { backgroundColor: colors.success }]} />
+      <Text style={[styles.liveText, { color: colors.success }]}>{label}</Text>
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
   screen: { flex: 1 },
   safe: { flex: 1 },
-  orbOne: { position: 'absolute', width: 280, height: 280, borderRadius: 999, top: -105, right: -105 },
-  orbTwo: { position: 'absolute', width: 235, height: 235, borderRadius: 999, bottom: 65, left: -135 },
-  glass: { borderRadius: 24, borderWidth: 1, overflow: 'hidden' },
+  orbOne: { position: 'absolute', width: 300, height: 300, borderRadius: 999, top: -115, right: -115 },
+  orbTwo: { position: 'absolute', width: 250, height: 250, borderRadius: 999, bottom: 54, left: -145 },
+  glass: { borderRadius: 26, borderWidth: 1, overflow: 'hidden' },
+  glassHighlight: { position: 'absolute', top: 0, left: 18, right: 18, height: 1 },
   header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 19, paddingTop: 10, paddingBottom: 18, gap: 12 },
-  eyebrow: { fontSize: 10, fontWeight: '900', letterSpacing: 1.6, marginBottom: 5 },
-  title: { fontSize: 30, fontWeight: '900', letterSpacing: -1.05 },
-  button: { minHeight: 52, borderRadius: 17, borderWidth: StyleSheet.hairlineWidth, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 20 },
+  eyebrow: { fontSize: 10, fontWeight: '900', letterSpacing: 1.7, marginBottom: 5 },
+  title: { fontSize: 31, fontWeight: '900', letterSpacing: -1.15 },
+  button: { minHeight: 52, borderRadius: 18, borderWidth: StyleSheet.hairlineWidth, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 20, overflow: 'hidden' },
+  buttonSheen: { position: 'absolute', top: 0, left: 18, right: 18, height: 1, backgroundColor: 'rgba(255,255,255,.35)' },
   buttonText: { fontSize: 15, fontWeight: '800' },
   pill: { alignSelf: 'flex-start', minHeight: 28, paddingHorizontal: 10, borderRadius: 999, borderWidth: 1, flexDirection: 'row', alignItems: 'center', gap: 7 },
   pillText: { fontSize: 10, fontWeight: '900', textTransform: 'uppercase', letterSpacing: 0.55 },
@@ -209,4 +294,7 @@ const styles = StyleSheet.create({
   emptyTitle: { fontSize: 17, fontWeight: '800' },
   body: { fontSize: 14, lineHeight: 21, textAlign: 'center' },
   themeDot: { width: 16, height: 16, borderRadius: 8, borderWidth: 2 },
+  liveRow: { flexDirection: 'row', alignItems: 'center', gap: 7 },
+  liveDot: { width: 7, height: 7, borderRadius: 7 },
+  liveText: { fontSize: 10, fontWeight: '900', letterSpacing: 0.4 },
 });
