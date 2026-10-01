@@ -20,6 +20,7 @@ export default function NotificationSettings() {
   const { colors } = useAppTheme();
   const ui = useUIStyles();
   const styles = useMemo(() => createStyles(colors), [colors]);
+  const expoGo = notificationService.isExpoGo();
   const [prefs, setPrefs] = useState<NotificationPreferences | null>(null);
   const [permission, setPermission] = useState<boolean | null>(null);
   const [busy, setBusy] = useState('');
@@ -54,11 +55,21 @@ export default function NotificationSettings() {
   }
 
   async function enableDevicePush() {
+    if (expoGo) {
+      setError('Remote push is disabled inside Expo Go. Install an Auronix development or preview build to test real device notifications.');
+      return;
+    }
     setBusy('device'); setError('');
     try {
       const result = await notificationService.register();
       setPermission(result.registered);
-      if (!result.registered) setError(result.reason === 'permission-denied' ? 'Notifications are disabled for Auronix Seller in your device settings.' : 'Push notifications need a configured EAS project ID in the standalone build.');
+      if (!result.registered) {
+        setError(result.reason === 'permission-denied'
+          ? 'Notifications are disabled for Auronix Seller in your device settings.'
+          : result.reason === 'expo-go'
+            ? 'Remote push is disabled inside Expo Go. Use an Auronix development build.'
+            : 'Push notifications need a configured EAS project ID in the standalone build.');
+      }
     } catch (caught) { setError(caught instanceof Error ? caught.message : 'Unable to enable device notifications.'); }
     finally { setBusy(''); }
   }
@@ -66,7 +77,7 @@ export default function NotificationSettings() {
   return <Screen>
     <View style={styles.header}><Pressable onPress={() => router.back()} style={styles.back}><Ionicons name="chevron-back" size={22} color={colors.ink} /></Pressable><View style={{ flex: 1 }}><Text style={styles.kicker}>NOTIFICATION CONTROL</Text><Text style={styles.title}>Notifications</Text></View></View>
     {!prefs ? <View style={styles.loader}><IOSSpinner /></View> : <ScrollView contentContainerStyle={ui.content} showsVerticalScrollIndicator={false}>
-      <GlassCard style={styles.deviceCard}><View style={[styles.deviceIcon, { backgroundColor: permission ? colors.successSoft : colors.warningSoft }]}><Ionicons name={permission ? 'notifications' : 'notifications-off-outline'} size={22} color={permission ? colors.success : colors.warning} /></View><View style={{ flex: 1 }}><Text style={styles.deviceTitle}>{permission ? 'Device notifications enabled' : 'Device notifications unavailable'}</Text><Text style={styles.deviceBody}>{permission ? 'This device can receive seller push notifications when the installed build has a valid Expo push project.' : 'Enable system notification permission to receive seller updates outside the app.'}</Text></View>{!permission ? <PrimaryButton loading={busy === 'device'} style={styles.enableButton} onPress={() => void enableDevicePush()}>Enable</PrimaryButton> : null}</GlassCard>
+      <GlassCard style={styles.deviceCard}><View style={[styles.deviceIcon, { backgroundColor: permission ? colors.successSoft : expoGo ? colors.accentSoft : colors.warningSoft }]}><Ionicons name={permission ? 'notifications' : expoGo ? 'flask-outline' : 'notifications-off-outline'} size={22} color={permission ? colors.success : expoGo ? colors.accent : colors.warning} /></View><View style={{ flex: 1 }}><Text style={styles.deviceTitle}>{permission ? 'Device notifications enabled' : expoGo ? 'Expo Go preview mode' : 'Device notifications unavailable'}</Text><Text style={styles.deviceBody}>{permission ? 'This device can receive seller push notifications.' : expoGo ? 'The app remains fully usable here. Remote push activates in the Auronix development/preview/production build.' : 'Enable system notification permission to receive seller updates outside the app.'}</Text></View>{!permission && !expoGo ? <PrimaryButton loading={busy === 'device'} style={styles.enableButton} onPress={() => void enableDevicePush()}>Enable</PrimaryButton> : null}</GlassCard>
       {error ? <GlassCard style={styles.errorCard}><Text style={styles.error}>{error}</Text></GlassCard> : null}
       <Text style={ui.sectionTitle}>What reaches you</Text>
       <GlassCard style={styles.list}>{rows.map((row, index) => <View key={row.key} style={[styles.row, index > 0 && styles.border]}><View style={styles.icon}><Ionicons name={row.icon} size={19} color={colors.accent} /></View><View style={{ flex: 1 }}><Text style={styles.rowTitle}>{row.title}</Text><Text style={styles.rowBody}>{row.body}</Text></View><Switch disabled={busy === row.key} value={prefs[row.key] as boolean} onValueChange={(value) => void toggle(row.key, value)} trackColor={{ false: colors.borderStrong, true: colors.accentStrong }} thumbColor={colors.inverse} /></View>)}</GlassCard>
