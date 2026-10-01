@@ -48,7 +48,7 @@ export function AppLockScreen() {
         <GlassCard style={styles.card}>
           <View style={styles.securityRow}>
             <View style={styles.securityIcon}><Ionicons name="shield-checkmark-outline" size={20} color={colors.success} /></View>
-            <View style={{ flex: 1 }}><Text style={styles.securityTitle}>Protected locally</Text><Text style={styles.securityMeta}>Your Firebase session remains signed in while the app stays locked.</Text></View>
+            <View style={{ flex: 1 }}><Text style={styles.securityTitle}>Protected locally</Text><Text style={styles.securityMeta}>Your Auronix seller session remains signed in while the app stays locked.</Text></View>
           </View>
           {message ? <Text style={styles.message}>{message}</Text> : null}
           <PrimaryButton loading={busy} onPress={() => void handleUnlock()}>
@@ -64,7 +64,7 @@ export function AppLockScreen() {
 
 function createStyles(colors: AppColors) {
   return StyleSheet.create({
-    root: { ...StyleSheet.absoluteFillObject, zIndex: 10000, alignItems: 'center', justifyContent: 'center', padding: 22, overflow: 'hidden' },
+    root: { position: 'absolute', top: 0, right: 0, bottom: 0, left: 0, zIndex: 10000, alignItems: 'center', justifyContent: 'center', padding: 22, overflow: 'hidden' },
     orbOne: { position: 'absolute', width: 330, height: 330, borderRadius: 999, top: -120, right: -140 },
     orbTwo: { position: 'absolute', width: 270, height: 270, borderRadius: 999, bottom: -80, left: -130 },
     content: { width: '100%', maxWidth: 430, alignItems: 'center' },
