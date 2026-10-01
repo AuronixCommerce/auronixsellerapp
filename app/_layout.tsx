@@ -2,7 +2,7 @@ import { router, Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { View } from 'react-native';
+import { AppState, View } from 'react-native';
 import { AppLockScreen } from '@/components/app-lock-screen';
 import { BrandSplash } from '@/components/brand-splash';
 import { AppLockProvider, useAppLock } from '@/src/context/app-lock';
@@ -10,6 +10,7 @@ import { AuthProvider, useAuth } from '@/src/context/auth';
 import { ThemeProvider, useAppTheme } from '@/src/context/theme';
 import { rawPushHref } from '@/src/lib/deep-links';
 import { notificationService } from '@/src/services/notification-service';
+import { flushSyncQueue } from '@/src/services/offline-sync';
 
 SplashScreen.preventAutoHideAsync().catch(() => undefined);
 SplashScreen.setOptions({ duration: 260, fade: true });
@@ -34,14 +35,21 @@ function SecureShell() {
       return;
     }
     void notificationService.register().catch(() => undefined);
-    const subscription = notificationService.addResponseListener(href => router.push(rawPushHref(href)));
+    void flushSyncQueue().catch(() => undefined);
+    const notificationSubscription = notificationService.addResponseListener(href => router.push(rawPushHref(href)));
+    const appStateSubscription = AppState.addEventListener('change', state => {
+      if (state === 'active') void flushSyncQueue().catch(() => undefined);
+    });
     if (!initialPushHandled.current) {
       initialPushHandled.current = true;
       void notificationService.lastResponseHref().then(href => {
         if (href) router.push(rawPushHref(href));
       }).catch(() => undefined);
     }
-    return () => subscription.remove();
+    return () => {
+      notificationSubscription.remove();
+      appStateSubscription.remove();
+    };
   }, [user]);
 
   const finishSplash = useCallback(() => setShowBrandSplash(false), []);
