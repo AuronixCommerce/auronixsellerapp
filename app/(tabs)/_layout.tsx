@@ -2,7 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { BlurView } from 'expo-blur';
 import { Redirect, Tabs } from 'expo-router';
 import { useEffect, useRef } from 'react';
-import { Animated, StyleSheet, View } from 'react-native';
+import { Animated, StyleSheet, View, type ColorValue } from 'react-native';
 import { IOSSpinner, Screen } from '@/components/ui';
 import { useAuth } from '@/src/context/auth';
 import { useAppTheme } from '@/src/context/theme';
@@ -11,7 +11,7 @@ const icons: Record<string, keyof typeof Ionicons.glyphMap> = {
   dashboard: 'home-outline', products: 'cube-outline', catalogs: 'documents-outline', ai: 'sparkles-outline', more: 'grid-outline',
 };
 
-function DockIcon({ name, color, size, focused }: { name: keyof typeof Ionicons.glyphMap; color: string; size: number; focused: boolean }) {
+function DockIcon({ name, color, size, focused }: { name: keyof typeof Ionicons.glyphMap; color: ColorValue; size: number; focused: boolean }) {
   const { colors } = useAppTheme();
   const active = useRef(new Animated.Value(focused ? 1 : 0)).current;
   useEffect(() => { Animated.spring(active, { toValue: focused ? 1 : 0, damping: 15, stiffness: 210, mass: 0.7, useNativeDriver: true }).start(); }, [active, focused]);
