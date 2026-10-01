@@ -1,5 +1,7 @@
+import { Ionicons } from '@expo/vector-icons';
 import { useMemo, useState } from 'react';
-import { ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { BarcodeScanner } from '@/components/barcode-scanner';
 import { GlassCard, PrimaryButton, useUIStyles } from '@/components/ui';
 import { useAppTheme } from '@/src/context/theme';
 import type { AppColors } from '@/src/theme';
@@ -47,29 +49,33 @@ export function ProductForm({ initial, submitLabel = 'Save Product', busy, error
   const ui = useUIStyles();
   const styles = useMemo(() => createStyles(colors), [colors]);
   const [form, setForm] = useState<ProductFormValue>(() => formFromProduct(initial));
+  const [scanTarget, setScanTarget] = useState<'upc' | 'ean' | null>(null);
   const financial = calculate(form);
   const set = (key: keyof ProductFormValue, value: string) => setForm(current => ({ ...current, [key]: value }));
   const numeric: (keyof ProductFormValue)[] = ['cost', 'sellingPrice', 'marketplaceFees', 'fulfillmentFees', 'inventoryQuantity', 'lowStockThreshold'];
 
-  return <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-    <GlassCard style={styles.section}><Text style={styles.sectionTitle}>Product identity</Text>{[
-      ['name','Product name'],['brand','Brand'],['sku','SKU'],['upc','UPC'],['ean','EAN'],['asin','ASIN'],['category','Category']
-    ].map(([key,label]) => <View key={key}><Text style={ui.label}>{label}</Text><TextInput value={String(form[key as keyof ProductFormValue] || '')} onChangeText={value => set(key as keyof ProductFormValue, value)} placeholder={label} placeholderTextColor={colors.muted} style={ui.input} autoCapitalize={['sku','upc','ean','asin'].includes(key) ? 'characters' : 'sentences'} /></View>)}<Text style={ui.label}>Description</Text><TextInput multiline value={form.description} onChangeText={value => set('description', value)} placeholder="Product details" placeholderTextColor={colors.muted} style={[ui.input, ui.textarea]} /></GlassCard>
+  return <>
+    <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+      <GlassCard style={styles.section}><Text style={styles.sectionTitle}>Product identity</Text>{[
+        ['name','Product name'],['brand','Brand'],['sku','SKU'],['upc','UPC'],['ean','EAN'],['asin','ASIN'],['category','Category']
+      ].map(([key,label]) => <View key={key}><Text style={ui.label}>{label}</Text><View style={styles.inputRow}><TextInput value={String(form[key as keyof ProductFormValue] || '')} onChangeText={value => set(key as keyof ProductFormValue, value)} placeholder={label} placeholderTextColor={colors.muted} style={[ui.input, styles.flexInput]} autoCapitalize={['sku','upc','ean','asin'].includes(key) ? 'characters' : 'sentences'} keyboardType={['upc','ean'].includes(key) ? 'number-pad' : 'default'} />{['upc','ean'].includes(key) ? <Pressable accessibilityLabel={`Scan ${label}`} onPress={() => setScanTarget(key as 'upc' | 'ean')} style={({ pressed }) => [styles.scanButton, pressed && { opacity: 0.65 }]}><Ionicons name="scan-outline" size={21} color={colors.accent} /></Pressable> : null}</View></View>)}<Text style={ui.label}>Description</Text><TextInput multiline value={form.description} onChangeText={value => set('description', value)} placeholder="Product details" placeholderTextColor={colors.muted} style={[ui.input, ui.textarea]} /></GlassCard>
 
-    <GlassCard style={styles.section}><Text style={styles.sectionTitle}>Pricing & inventory</Text>{[
-      ['cost','Product cost'],['sellingPrice','Selling price'],['marketplaceFees','Marketplace fees'],['fulfillmentFees','Shipping / FBA fees'],['inventoryQuantity','Inventory quantity'],['lowStockThreshold','Low stock threshold']
-    ].map(([key,label]) => <View key={key}><Text style={ui.label}>{label}</Text><TextInput value={String(form[key as keyof ProductFormValue] || '')} onChangeText={value => set(key as keyof ProductFormValue, value)} placeholder="0" placeholderTextColor={colors.muted} style={ui.input} keyboardType={numeric.includes(key as keyof ProductFormValue) ? 'decimal-pad' : 'default'} /></View>)}
-      <View style={styles.financialRow}><View><Text style={styles.financialLabel}>PROFIT</Text><Text style={styles.financialValue}>{financial.profit === null ? '—' : `$${financial.profit.toFixed(2)}`}</Text></View><View><Text style={styles.financialLabel}>MARGIN</Text><Text style={styles.financialValue}>{financial.margin === null ? '—' : `${financial.margin.toFixed(1)}%`}</Text></View><View><Text style={styles.financialLabel}>ROI</Text><Text style={styles.financialValue}>{financial.roi === null ? '—' : `${financial.roi.toFixed(1)}%`}</Text></View></View>
-    </GlassCard>
+      <GlassCard style={styles.section}><Text style={styles.sectionTitle}>Pricing & inventory</Text>{[
+        ['cost','Product cost'],['sellingPrice','Selling price'],['marketplaceFees','Marketplace fees'],['fulfillmentFees','Shipping / FBA fees'],['inventoryQuantity','Inventory quantity'],['lowStockThreshold','Low stock threshold']
+      ].map(([key,label]) => <View key={key}><Text style={ui.label}>{label}</Text><TextInput value={String(form[key as keyof ProductFormValue] || '')} onChangeText={value => set(key as keyof ProductFormValue, value)} placeholder="0" placeholderTextColor={colors.muted} style={ui.input} keyboardType={numeric.includes(key as keyof ProductFormValue) ? 'decimal-pad' : 'default'} /></View>)}
+        <View style={styles.financialRow}><View><Text style={styles.financialLabel}>PROFIT</Text><Text style={styles.financialValue}>{financial.profit === null ? '—' : `$${financial.profit.toFixed(2)}`}</Text></View><View><Text style={styles.financialLabel}>MARGIN</Text><Text style={styles.financialValue}>{financial.margin === null ? '—' : `${financial.margin.toFixed(1)}%`}</Text></View><View><Text style={styles.financialLabel}>ROI</Text><Text style={styles.financialValue}>{financial.roi === null ? '—' : `${financial.roi.toFixed(1)}%`}</Text></View></View>
+      </GlassCard>
 
-    <GlassCard style={styles.section}><Text style={styles.sectionTitle}>Operations</Text>{[['supplier','Supplier'],['marketplace','Marketplace']].map(([key,label]) => <View key={key}><Text style={ui.label}>{label}</Text><TextInput value={String(form[key as keyof ProductFormValue] || '')} onChangeText={value => set(key as keyof ProductFormValue, value)} placeholder={label} placeholderTextColor={colors.muted} style={ui.input} /></View>)}<Text style={styles.helper}>Images, barcode scanning and marketplace adapters use the same product record and can be attached without creating a second product system.</Text></GlassCard>
-    {error ? <Text style={styles.error}>{error}</Text> : null}
-    <PrimaryButton loading={busy} onPress={() => onSubmit(form)}>{submitLabel}</PrimaryButton>
-  </ScrollView>;
+      <GlassCard style={styles.section}><Text style={styles.sectionTitle}>Operations</Text>{[['supplier','Supplier'],['marketplace','Marketplace']].map(([key,label]) => <View key={key}><Text style={ui.label}>{label}</Text><TextInput value={String(form[key as keyof ProductFormValue] || '')} onChangeText={value => set(key as keyof ProductFormValue, value)} placeholder={label} placeholderTextColor={colors.muted} style={ui.input} /></View>)}<Text style={styles.helper}>Barcode scanning, private images and marketplace adapters all attach to this same product record.</Text></GlassCard>
+      {error ? <Text style={styles.error}>{error}</Text> : null}
+      <PrimaryButton loading={busy} onPress={() => onSubmit(form)}>{submitLabel}</PrimaryButton>
+    </ScrollView>
+    <BarcodeScanner visible={Boolean(scanTarget)} onClose={() => setScanTarget(null)} onScanned={(value) => { if (scanTarget) set(scanTarget, value); }} />
+  </>;
 }
 
 function createStyles(colors: AppColors) { return StyleSheet.create({
-  content: { paddingHorizontal: 18, paddingBottom: 48, gap: 14 }, section: { padding: 17, gap: 10 }, sectionTitle: { color: colors.ink, fontSize: 17, fontWeight: '900', marginBottom: 3 },
+  content: { paddingHorizontal: 18, paddingBottom: 48, gap: 14 }, section: { padding: 17, gap: 10 }, sectionTitle: { color: colors.ink, fontSize: 17, fontWeight: '900', marginBottom: 3 }, inputRow: { flexDirection: 'row', alignItems: 'center', gap: 8 }, flexInput: { flex: 1 }, scanButton: { width: 48, height: 48, borderRadius: 15, backgroundColor: colors.accentSoft, borderWidth: 1, borderColor: colors.border, alignItems: 'center', justifyContent: 'center' },
   financialRow: { flexDirection: 'row', justifyContent: 'space-between', backgroundColor: colors.surfaceSoft, borderRadius: 16, padding: 14, marginTop: 4 }, financialLabel: { color: colors.muted, fontSize: 8, fontWeight: '900', letterSpacing: 1 }, financialValue: { color: colors.ink, fontSize: 14, fontWeight: '900', marginTop: 3 },
   helper: { color: colors.muted, fontSize: 10, lineHeight: 15 }, error: { color: colors.danger, fontSize: 11, lineHeight: 17 },
 }); }
