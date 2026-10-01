@@ -28,6 +28,7 @@
       "expo-router",
       "expo-font",
       "expo-status-bar",
+      "expo-notifications",
       [
         "expo-local-authentication",
         {
