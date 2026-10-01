@@ -30,6 +30,14 @@
       "expo-status-bar",
       "expo-notifications",
       [
+        "expo-camera",
+        {
+          "cameraPermission": "Allow Auronix Seller to use the camera for product barcode scanning.",
+          "recordAudioAndroid": false,
+          "barcodeScannerEnabled": true
+        }
+      ],
+      [
         "expo-local-authentication",
         {
           "faceIDPermission": "Allow Auronix Seller to use Face ID to protect your seller workspace."
