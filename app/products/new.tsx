@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { useMemo, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { ProductForm, type ProductFormValue } from '@/components/product-form';
@@ -8,12 +8,19 @@ import { Screen } from '@/components/ui';
 import { useAppTheme } from '@/src/context/theme';
 import { productService } from '@/src/services/product-service';
 import type { AppColors } from '@/src/theme';
+import type { Product } from '@/src/types';
 
 export default function NewProduct() {
+  const { barcode, barcodeType } = useLocalSearchParams<{ barcode?: string; barcodeType?: string }>();
   const { colors } = useAppTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const initial = useMemo<Partial<Product>>(() => {
+    const value = String(barcode || '').trim();
+    if (!value) return {};
+    return String(barcodeType || '').toLowerCase().startsWith('ean') ? { ean: value } : { upc: value };
+  }, [barcode, barcodeType]);
 
   async function save(form: ProductFormValue) {
     if (!form.name.trim()) return setError('Product name is required.');
@@ -28,7 +35,7 @@ export default function NewProduct() {
     } finally { setBusy(false); }
   }
 
-  return <Screen><View style={styles.header}><Pressable onPress={() => router.back()} style={styles.back}><Ionicons name="chevron-back" size={22} color={colors.ink} /></Pressable><View style={{ flex: 1 }}><Text style={styles.kicker}>PRODUCT CENTER</Text><Text style={styles.title}>New product</Text></View></View><ProductForm busy={busy} error={error} submitLabel="Create Product" onSubmit={save} /></Screen>;
+  return <Screen><View style={styles.header}><Pressable onPress={() => router.back()} style={styles.back}><Ionicons name="chevron-back" size={22} color={colors.ink} /></Pressable><View style={{ flex: 1 }}><Text style={styles.kicker}>PRODUCT CENTER</Text><Text style={styles.title}>New product</Text></View><Pressable accessibilityLabel="Scan barcode" onPress={() => router.push('/products/scan')} style={styles.scan}><Ionicons name="barcode-outline" size={22} color={colors.accent} /></Pressable></View>{barcode ? <View style={styles.scanned}><Ionicons name="checkmark-circle" size={16} color={colors.success} /><Text style={styles.scannedText}>Scanned {barcodeType || 'barcode'}: {barcode}</Text></View> : null}<ProductForm key={String(barcode || 'manual')} initial={initial} busy={busy} error={error} submitLabel="Create Product" onSubmit={save} /></Screen>;
 }
 
-function createStyles(colors: AppColors) { return StyleSheet.create({ header: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 14, paddingTop: 8, paddingBottom: 15 }, back: { width: 43, height: 43, borderRadius: 15, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.surfaceSoft, borderWidth: 1, borderColor: colors.border }, kicker: { color: colors.accent, fontSize: 9, letterSpacing: 1.5, fontWeight: '900' }, title: { color: colors.ink, fontSize: 25, fontWeight: '900', letterSpacing: -0.7, marginTop: 2 } }); }
+function createStyles(colors: AppColors) { return StyleSheet.create({ header: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 14, paddingTop: 8, paddingBottom: 15 }, back: { width: 43, height: 43, borderRadius: 15, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.surfaceSoft, borderWidth: 1, borderColor: colors.border }, scan: { width: 43, height: 43, borderRadius: 15, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.accentSoft, borderWidth: 1, borderColor: colors.border }, kicker: { color: colors.accent, fontSize: 9, letterSpacing: 1.5, fontWeight: '900' }, title: { color: colors.ink, fontSize: 25, fontWeight: '900', letterSpacing: -0.7, marginTop: 2 }, scanned: { marginHorizontal: 18, marginBottom: 10, minHeight: 38, borderRadius: 14, backgroundColor: colors.successSoft, flexDirection: 'row', alignItems: 'center', gap: 7, paddingHorizontal: 12 }, scannedText: { color: colors.success, fontSize: 10, fontWeight: '800', flex: 1 } }); }
