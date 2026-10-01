@@ -1,3 +1,5 @@
+export type { AppColors } from '@/src/theme';
+
 export type SellerProfile = {
   uid?: string;
   email?: string;
@@ -52,6 +54,7 @@ export type Product = {
   inventoryQuantity?: number;
   lowStockThreshold?: number;
   supplier?: string;
+  supplierId?: string;
   marketplace?: string;
   imageUrls?: string[];
   status?: ProductStatus | string;
@@ -176,9 +179,11 @@ export type MarketplaceConnection = {
   name: string;
   status: 'disconnected' | 'connecting' | 'connected' | 'requires-attention' | 'error';
   configured?: boolean;
+  oauthConfigured?: boolean;
   connectedAt?: number;
   lastSyncAt?: number;
   error?: string;
+  capabilities?: string[];
 };
 
 export type AnalyticsPoint = {
